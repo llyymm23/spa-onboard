@@ -1,19 +1,20 @@
 import request from 'supertest';
 import express from 'express';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 import { signupController, loginController, refreshTokenController, profileController } from '../src/controllers/user.controller.js';
 import { signup, login, refreshToken, getUserProfile } from '../src/services/user.service.js';
+import authMiddleware from '../src/middlewares/auth.middleware.js';
 
 jest.mock('../src/services/user.service.js');
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 app.post('/signup', signupController);
 app.post('/login', loginController);
 app.post('/token', refreshTokenController);
-app.get('/profile', (req, res, next) => {
-    req.user = { userId: 1 };
-    next();
-}, profileController);
+app.get('/profile', authMiddleware, profileController);
 
 describe('User Controller', () => {
     afterEach(() => {
@@ -91,39 +92,43 @@ describe('User Controller', () => {
         });
     });
 
-    // describe('POST 토큰 재발급(/token)', () => {
-    //     it('새로운 access token 재발급 성공', async () => {
-    //         refreshToken.mockResolvedValue('newaccesstoken');
+    describe('POST 토큰 재발급(/token)', () => {
+        it('새로운 access token 재발급 성공', async () => {
+            refreshToken.mockResolvedValue('newaccesstoken');
 
-    //         const response = await request(app)
-    //             .post('/token')
-    //             .set('Cookie', ['refreshToken=validrefreshtoken']);
+            const response = await request(app)
+                .post('/token')
+                .set('cookie', ['refreshToken=validrefreshtoken']);
 
-    //         expect(response.status).toBe(201);
-    //         expect(response.body).toEqual({
-    //             message: '액세스 토큰이 갱신되었습니다.',
-    //             token: { accessToken: 'newaccesstoken' }
-    //         });
-    //         expect(response.headers['set-cookie']).toContainEqual(expect.stringContaining('authorization=Bearer newaccesstoken'));
-    //     });
+            expect(response.status).toBe(201);
+            expect(response.body).toEqual({
+                message: '액세스 토큰이 갱신되었습니다.',
+                token: { accessToken: 'newaccesstoken' }
+            });
 
-    //     it('refresh token도 만료되어 로그인 필요한 경우', async () => {
-    //         const response = await request(app)
-    //             .post('/token')
-    //             .set('Cookie', ['refreshToken=expiredRefreshToken']);
+            const cookies = response.headers['set-cookie'];
+            const authorizationCookie = cookies.find(cookie => cookie.startsWith('authorization='));
+            expect(authorizationCookie).toBe('authorization=Bearer%20newaccesstoken; Path=/; HttpOnly');
+        });
 
-    //         expect(response.status).toBe(401);
-    //         expect(response.body.message).toBe('로그인이 필요합니다.');
-    //     });
-    // });
+        it('refresh token도 만료되어 로그인 필요한 경우', async () => {
+            const response = await request(app)
+                .post('/token');
+
+            expect(response.status).toBe(401);
+            expect(response.body.message).toBe('로그인이 필요합니다.');
+        });
+    });
 
     describe('GET 프로필 조회(/profile)', () => {
         it('프로필 조회 성공', async () => {
             getUserProfile.mockResolvedValue({ userId: 1, username: 'testuser', nickname: 'testnick' });
 
+            const token = jwt.sign({ userId: 1 }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+
             const response = await request(app)
                 .get('/profile')
-                .set('Authorization', 'Bearer validaccesstoken');
+                .set('Cookie', [`authorization=Bearer ${token}`]);
 
             expect(response.status).toBe(201);
             expect(response.body).toEqual({ data: { userId: 1, username: 'testuser', nickname: 'testnick' } });
