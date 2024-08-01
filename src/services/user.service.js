@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import env from 'dotenv';
-import { findUserByUsername, findUserByNickname, createUser, updateUserRefreshToken, findUserByRefreshToken, findUserById } from '../repositories/user.repository.js';
+import { findUserByUsername, createUser, updateUserRefreshToken, findUserByRefreshToken, findUserById } from '../repositories/user.repository.js';
 
 env.config();
 
@@ -13,11 +13,6 @@ export const signup = async (username, password, nickname) => {
     const existingUser = await findUserByUsername(username);
     if (existingUser) {
         throw new Error('이미 존재하는 사용자입니다.');
-    }
-
-    const existingNickname = await findUserByNickname(nickname);
-    if (existingNickname) {
-        throw new Error('이미 존재하는 닉네임입니다.');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

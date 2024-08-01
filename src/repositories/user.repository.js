@@ -7,13 +7,6 @@ export const findUserByUsername = async (username) => {
     });
 };
 
-//회원가입 시 이미 해당 유저 있는지 확인
-export const findUserByNickname = async (nickname) => {
-    return prisma.users.findFirst({
-        where: { nickname },
-    });
-};
-
 //회원가입
 export const createUser = async (username, password, nickname) => {
     return prisma.users.create({
