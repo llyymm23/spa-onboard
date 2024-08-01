@@ -1,6 +1,6 @@
 import express from "express";
 import cookieParser from "cookie-parser";
-import UsersRouter from "./routers/user.router.js";
+import UsersRouter from "./src/routes/user.router.js";
 import { swaggerUi, specs } from './swagger.js';
 
 const app = express();
